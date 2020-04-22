@@ -42,3 +42,21 @@ def generate_timeseries_caps_mssl(data,anodefan,elsdatatype='data'):
     
     #return sunpy.timeseries.GenericTimeSeries(meta=data_metadata)
         
+        
+def CAPS_acutation(data,tempdatetime):
+    '''
+    Returns the CAPS actuation give a datetime.datetime
+    '''
+    
+
+    for counter, i in enumerate(data['times_utc']):
+        if i >= tempdatetime:
+            slicenumber = counter
+            break           
+    if 'sngact' in data.keys():
+        value = data['sngact'][slicenumber]   
+    if 'actuator' in data.keys():
+        value = data['actuator'][slicenumber]  
+        
+
+    return value
