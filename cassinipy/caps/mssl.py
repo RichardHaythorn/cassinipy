@@ -1,10 +1,14 @@
 import datetime
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.io import readsav
+from scipy.signal import find_peaks
 from sunpy.timeseries import TimeSeriesMetaData, GenericTimeSeries
 from sunpy.util import MetaDict
 from sunpy.time import TimeRange
+
+from cassinipy.caps.spice import cassini_ramdirection_SCframe, rotate_CAPS_SCframe
 
 
 ibscalib = readsav('calib\ibsdisplaycalib.dat')
@@ -219,3 +223,54 @@ def ELS_backgroundremoval(data,startslice,endslice):
             def_backgroundremoved[energycounter,:,backgroundcounter] = backgroundremoved_anodes 
             
     return def_backgroundremoved
+    
+def ELS_intensitypeaks(elsdata,energy,anode,starttime,endtime):     
+    startslice,endslice = CAPS_slicenumber(elsdata,starttime), CAPS_slicenumber(elsdata,endtime)
+    energybin = CAPS_energyslice("els",energy,energy)[0]
+    
+    dataslice = elsdata['data'][energybin,anode-1,startslice:endslice]
+    peaks, properties = find_peaks(dataslice,prominence=np.array([np.sqrt(i) for i in dataslice]),height=1e3) 
+    times=[]
+    for x in peaks:
+        times.append(elsdata['times_utc'][x + startslice])
+    return times,properties
+        
+def IBS_intensitypeaks(ibsdata,energy,starttime,endtime):     
+    startslice,endslice = CAPS_slicenumber(ibsdata,starttime), CAPS_slicenumber(ibsdata,endtime)
+    energybin = CAPS_energyslice("ibs",energy,energy)[0]
+    
+    dataslice = ibsdata['ibsdata'][energybin,1,startslice:endslice]
+    peaks, properties = find_peaks(dataslice,prominence=np.array([np.sqrt(i) for i in dataslice]),height=1e3) 
+    times=[]
+    for x in peaks:
+        times.append(ibsdata['times_utc'][x + startslice])
+    return times,properties
+    
+def ELS_intensityplot(elsdata,energy,anode,starttime,endtime,peaks=False,subplot_kw={"yscale":"log"}):
+    
+    startslice,endslice = CAPS_slicenumber(elsdata,starttime), CAPS_slicenumber(elsdata,endtime)
+    energybin = CAPS_energyslice("els",energy,energy)[0]
+    
+    fig, ax = plt.subplots(subplot_kw=subplot_kw)
+    ax.plot(elsdata['times_utc'][startslice:endslice],elsdata['data'][energybin,anode-1,startslice:endslice])
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Counts")
+    
+    if peaks==True:
+        times, properties = ELS_intensitypeaks(elsdata,energy,anode,starttime,endtime)
+        ax.scatter(times,properties['peak_heights'])
+    
+def IBS_intensityplot(ibsdata,energy,starttime,endtime,peaks=False,subplot_kw={"yscale":"log"}):
+    
+    startslice,endslice = CAPS_slicenumber(ibsdata,starttime), CAPS_slicenumber(ibsdata,endtime)
+    energybin = CAPS_energyslice("ibs",energy,energy)[0]
+    
+    fig, ax = plt.subplots(subplot_kw=subplot_kw)
+    ax.plot(ibsdata['times_utc'][startslice:endslice],ibsdata['ibsdata'][energybin,1,startslice:endslice])
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Counts")
+    
+    if peaks==True:
+        times, properties = IBS_intensitypeaks(ibsdata,energy,starttime,endtime)
+        ax.scatter(times,properties['peak_heights'])
+        
