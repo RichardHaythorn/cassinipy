@@ -60,6 +60,7 @@ def generate_timeseries_caps_mssl(data,anodefan,elsdatatype='data'):
 def CAPS_acutation(data,tempdatetime):
     '''
     Returns the CAPS actuation give a datetime.datetime
+    Works for elsres or sngres
     '''
     
 
@@ -104,14 +105,11 @@ def CAPS_ELS_FOVcentre_azi_elv(tempdatetime,elsdata,anodes=False):
    
     if anodes == True:
         ELS_azi = act
-        ELS_elv = np.arange(-70,90,20)
-            
+        ELS_elv = np.arange(-70,90,20)           
         
     if anodes == False:
         ELS_azi = act
         ELS_elv = 0
-        
-    
     
     return ELS_azi, ELS_elv
 
@@ -132,7 +130,7 @@ def CAPS_IBS_FOVcentre_azi_elv(tempdatetime,elsdata):
     #IBS_azi = np.arcsin(spice.vdot(azimuthvec_norm,IBSvecs))*spice.dpr()
     IBS_elv = 0
     IBS_azi = act
-    print(act,IBSvecs,IBS_azi,IBS_elv)
+    #print(act,IBSvecs,IBS_azi,IBS_elv)
 
     return IBS_azi, IBS_elv
 
