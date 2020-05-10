@@ -1,15 +1,15 @@
 import datetime
+
 import matplotlib.pyplot as plt
+import spiceypy as spice
 from matplotlib.colors import LogNorm
 from matplotlib.ticker import ScalarFormatter
-import numpy as np
-import pandas as pd
+from numpy import array, max, arange, mean, transpose, ndarray, zeros, arccos
+from pandas import DatetimeIndex, DataFrame
 from scipy.io import readsav
 from scipy.signal import find_peaks
-from sunpy.timeseries import TimeSeriesMetaData, GenericTimeSeries
-from sunpy.util import MetaDict
 from sunpy.time import TimeRange
-import spiceypy as spice
+from sunpy.timeseries import TimeSeriesMetaData, GenericTimeSeries
 
 from cassinipy.caps.spice import cassini_ramdirection_SCframe, rotate_CAPS_SCframe
 
@@ -30,14 +30,14 @@ def generate_timeseries_caps_mssl(data, anodefan, elsdatatype='data'):
     # TODO fix metadata
 
     if elsdatatype in data.keys():
-        dataframe = pd.DataFrame(np.transpose(data[elsdatatype][:, anodefan, :].byteswap().newbyteorder()))
+        dataframe = DataFrame(transpose(data[elsdatatype][:, anodefan, :].byteswap().newbyteorder()))
         currentdate = datetime.datetime.strptime(data['sdate'].decode('ascii'), "%d-%b-%Y")
         for key, value in data.items():
-            if isinstance(value, np.ndarray):
+            if isinstance(value, ndarray):
                 if value.ndim == 1 and value.shape[0] == data[elsdatatype].shape[2]:
                     dataframe[key] = value.byteswap().newbyteorder()
         dataframe = dataframe.set_index(
-            pd.DatetimeIndex([currentdate + datetime.timedelta(seconds=x) for x in dataframe['secofday']]))
+            DatetimeIndex([currentdate + datetime.timedelta(seconds=x) for x in dataframe['secofday']]))
         tr = TimeRange(dataframe.index[0], dataframe.index[-1])
         dataframe.drop(columns=['time_ut', 'secofday', 'endsec', 'timehrs', 'hhmmss'], inplace=True)
         for i in range(63):
@@ -96,13 +96,13 @@ def CAPS_ELS_localramangle(tempdatetime, elsdata, anodes=False):
     ramdir_SC = cassini_ramdirection_SCframe(tempdatetime, output=False)
     ELSvecs = rotate_CAPS_SCframe(act, 'els', anodes=anodes)
 
-    if anodes == True:
-        angle = np.zeros((8))
+    if anodes:
+        angle = zeros((8))
         for anodenumber, temp in enumerate(ELSvecs):
-            angle[anodenumber] = np.arccos(spice.vdot(temp, ramdir_SC)) * spice.dpr()
+            angle[anodenumber] = arccos(spice.vdot(temp, ramdir_SC)) * spice.dpr()
 
-    if anodes == False:
-        angle = np.arccos(spice.vdot(ELSvecs, ramdir_SC)) * spice.dpr()
+    if not anodes:
+        angle = arccos(spice.vdot(ELSvecs, ramdir_SC)) * spice.dpr()
 
     return angle
 
@@ -114,11 +114,11 @@ def CAPS_ELS_FOVcentre_azi_elv(tempdatetime, elsdata, anodes=False):
     act = CAPS_actuation(elsdata, tempdatetime)
     ELSvecs = rotate_CAPS_SCframe(act, 'els', anodes=anodes)
 
-    if anodes == True:
+    if anodes:
         ELS_azi = act
-        ELS_elv = np.arange(-70, 90, 20)
+        ELS_elv = arange(-70, 90, 20)
 
-    if anodes == False:
+    if not anodes:
         ELS_azi = act
         ELS_elv = 0
 
@@ -139,11 +139,11 @@ def CAPS_IBS_FOVcentre_azi_elv(tempdatetime, elsdata):
 
     # IBS_elv = np.arccos(spice.vdot(elevationvec_norm,IBSvecs))*spice.dpr()
     # IBS_azi = np.arcsin(spice.vdot(azimuthvec_norm,IBSvecs))*spice.dpr()
-    IBS_elv = 0
-    IBS_azi = act
+    ibs_elv = 0
+    ibs_azi = act
     # print(act,IBSvecs,IBS_azi,IBS_elv)
 
-    return IBS_azi, IBS_elv
+    return ibs_azi, ibs_elv
 
 
 def CAPS_actuationtimeslice(datetime, elsdata):
@@ -151,11 +151,8 @@ def CAPS_actuationtimeslice(datetime, elsdata):
     Returns the start and end slicenumbers while CAPS in actuation in one direction
     Accounts for extrema
     """
-
     # TODO remove ELSdata dependency
-
     slicevalue = CAPS_slicenumber(elsdata, datetime)
-    tempslicevalue = slicevalue
 
     if elsdata['actuator'][slicevalue + 2] > (elsdata['actuator'][slicevalue] + 0.5):
         direction = "positive"
@@ -217,7 +214,7 @@ def CAPS_energyslice(sensor, startenergy, endenergy):
         startcounter = 0
     else:
         for counter, energy in enumerate(polyearray):
-            if startenergy >= energy and startenergy < polyearray[counter + 1]:
+            if energy <= startenergy < polyearray[counter + 1]:
                 startcounter = counter
                 break
 
@@ -225,7 +222,7 @@ def CAPS_energyslice(sensor, startenergy, endenergy):
         endcounter = len(polyearray) - 1
     else:
         for counter, energy in enumerate(polyearray):
-            if endenergy >= energy and endenergy < polyearray[counter + 1]:
+            if energy <= endenergy < polyearray[counter + 1]:
                 endcounter = counter
                 break
 
@@ -233,12 +230,12 @@ def CAPS_energyslice(sensor, startenergy, endenergy):
 
 
 def ELS_backgroundremoval(data, startslice, endslice):
-    def_backgroundremoved = np.zeros((63, 8, endslice - startslice))
+    def_backgroundremoved = zeros((63, 8, endslice - startslice))
     # Background defined as average of 5 loweest count, negative ions unlikely to appear across 3 anodes
-    for backgroundcounter, timecounter in enumerate(np.arange(startslice, endslice, 1)):
+    for backgroundcounter, timecounter in enumerate(arange(startslice, endslice, 1)):
 
         for energycounter in range(63):
-            backgroundremoved_temp = np.array(data['def'][energycounter, :8, timecounter]) - np.mean(
+            backgroundremoved_temp = array(data['def'][energycounter, :8, timecounter]) - mean(
                 sorted(data['def'][energycounter, :8, timecounter])[:5])
             backgroundremoved_anodes = [0 if i < 0 else i for i in backgroundremoved_temp]
             def_backgroundremoved[energycounter, :, backgroundcounter] = backgroundremoved_anodes
@@ -247,7 +244,7 @@ def ELS_backgroundremoval(data, startslice, endslice):
 
 
 def ELS_intensitypeaks(elsdata, energy, anode, starttime, endtime, prominence=1e10):
-    '''
+    """
     Works on DEF
     :param elsdata:
     :param energy:
@@ -256,7 +253,7 @@ def ELS_intensitypeaks(elsdata, energy, anode, starttime, endtime, prominence=1e
     :param endtime:
     :param prominence:
     :return:
-    '''
+    """
     startslice, endslice = CAPS_slicenumber(elsdata, starttime), CAPS_slicenumber(elsdata, endtime)
     energybin = CAPS_energyslice("els", energy, energy)[0]
 
@@ -290,7 +287,7 @@ def ELS_intensityplot(elsdata, energy, anode, starttime, endtime, peaks=False, p
     ax.set_xlabel("Time")
     ax.set_ylabel("Counts")
 
-    if peaks == True:
+    if peaks:
         times, properties = ELS_intensitypeaks(elsdata, energy, anode - 1, starttime, endtime, prominence=prominence)
         ax.scatter(times, properties['peak_heights'])
 
@@ -304,15 +301,15 @@ def IBS_intensityplot(ibsdata, energy, starttime, endtime, peaks=False, prominen
     ax.set_xlabel("Time")
     ax.set_ylabel("Counts")
 
-    if peaks == True:
+    if peaks:
         times, properties = IBS_intensitypeaks(ibsdata, energy, starttime, endtime, prominence=prominence)
         ax.scatter(times, properties['peak_heights'])
 
 
 def ELS_spectrogram(elsdata, anodes, starttime, seconds, maxbackgroundremoved=False, meanbackgroundremoved=False):
-    '''
+    """
     Plot multiple els anodes from single bin across time
-    '''
+    """
 
     deflimits = {'t27': [1e9, 1e12], 't55': [1e9, 1e12], 't56': [1e9, 1e12], 't57': [1e9, 1e12], 't58': [1e9, 1e12],
                  't59': [1e9, 1e12]}
@@ -335,7 +332,7 @@ def ELS_spectrogram(elsdata, anodes, starttime, seconds, maxbackgroundremoved=Fa
 
     print(slicenumber)
 
-    slicenumbers = np.arange(slicenumber, slicenumber + (seconds / 2), 1, dtype=int)
+    slicenumbers = arange(slicenumber, slicenumber + (seconds / 2), 1, dtype=int)
 
     X = elsdata['times_utc'][slicenumbers[0]:slicenumbers[-1] + 1]
     # print(X)
@@ -343,21 +340,21 @@ def ELS_spectrogram(elsdata, anodes, starttime, seconds, maxbackgroundremoved=Fa
 
     for figcounter, anode in enumerate(anodes):
 
-        if maxbackgroundremoved == False and meanbackgroundremoved == False:
+        if maxbackgroundremoved and meanbackgroundremoved:
             Z = elsdata['def'][:, anode, slicenumbers[0]:slicenumbers[-1]]
         if meanbackgroundremoved:
-            backgroundremoveddata = np.zeros(shape=(63, len(X)))
+            backgroundremoveddata = zeros(shape=(63, len(X)))
             for slicecounter, slicenumber in enumerate(slicenumbers):
-                backgroundcount = np.mean([np.mean(elsdata['def'][:, :3, slicenumber], axis=1),
-                                           np.mean(elsdata['def'][:, 5:8, slicenumber], axis=1)], axis=0)
+                backgroundcount = mean([mean(elsdata['def'][:, :3, slicenumber], axis=1),
+                                        mean(elsdata['def'][:, 5:8, slicenumber], axis=1)], axis=0)
                 tempdata = [a - b for a, b in zip(elsdata['def'][:, anode, slicenumber], backgroundcount)]
                 backgroundremoveddata[:, slicecounter] = tempdata
             Z = backgroundremoveddata
-        if maxbackgroundremoved == True:
-            backgroundremoveddata = np.zeros(shape=(63, len(X)))
+        if maxbackgroundremoved:
+            backgroundremoveddata = zeros(shape=(63, len(X)))
             for slicecounter, slicenumber in enumerate(slicenumbers):
-                backgroundcount = np.max([np.max(elsdata['def'][:, :3, slicenumber], axis=1),
-                                          np.max(elsdata['def'][:, 5:8, slicenumber], axis=1)], axis=0)
+                backgroundcount = max([max(elsdata['def'][:, :3, slicenumber], axis=1),
+                                       max(elsdata['def'][:, 5:8, slicenumber], axis=1)], axis=0)
                 tempdata = [a - b for a, b in zip(elsdata['def'][:, anode, slicenumber], backgroundcount)]
                 backgroundremoveddata[:, slicecounter] = tempdata
             Z = backgroundremoveddata
@@ -372,7 +369,7 @@ def ELS_spectrogram(elsdata, anodes, starttime, seconds, maxbackgroundremoved=Fa
             upper = 1e14
         if len(anodes) > 1:
             axis1 = axes[figcounter]
-        CS = axis1.pcolormesh(X, Y, Z, norm=LogNorm(vmin=lower, vmax=upper), cmap='jet')
+        cs = axis1.pcolormesh(X, Y, Z, norm=LogNorm(vmin=lower, vmax=upper), cmap='jet')
 
         axis1.set_yscale("log")
         axis1.set_xlim(X[0], X[-1])
@@ -406,7 +403,7 @@ def ELS_spectrogram(elsdata, anodes, starttime, seconds, maxbackgroundremoved=Fa
 
     fig.subplots_adjust(right=0.8)
     cbar_ax = fig.add_axes([0.82, 0.2, 0.03, 0.68])
-    cbar = fig.colorbar(CS, cax=cbar_ax)
+    cbar = fig.colorbar(cs, cax=cbar_ax)
     cbar.ax.set_ylabel("DEF [$m^{-2} s^{1} str^{-1} eV^{-1}$]")
     # fig.savefig(elsdata['instrument'] + "-" + elsdata['flyby'] + "-Spectrogram.pdf",format='pdf',bbox_inches='tight')
 
@@ -415,11 +412,9 @@ def ELS_spectrogram(elsdata, anodes, starttime, seconds, maxbackgroundremoved=Fa
 
 def SNG_spectrogram(sngdata, anodes, starttime, seconds, mass=False, backgroundremoved=False, hlines=False,
                     hlines_vel=False):
-    '''
+    """
     Plot multiple sng anodes from single bin across time
-    '''
-
-    countlimits = {'e5': [1e1, 1e6], 'e7': [1e1, 1e6], 'e17': [1e1, 1e6]}
+    """
     deflimits = {'e3': [1e10, 1e12], 'e5': [1e11, 1e14], 'e7': [1e9, 1e13], 'e17': [1e9, 5e12], 'e18': [1e9, 5e12]}
 
     energylimits = {'e5': [10, 70], 'e7': [1, 70], 'e17': [1, 70], 'e18': [1, 70]}
@@ -430,7 +425,7 @@ def SNG_spectrogram(sngdata, anodes, starttime, seconds, mass=False, backgroundr
         axis1 = plt.axes()
 
     if len(anodes) > 1:
-        fig, axes = plt.subplots(len(anodes), sharex=True, sharey=True, figsize=(18, 10))
+        fig, axes = plt.subplots(len(anodes), sharex='True', sharey='True', figsize=(18, 10))
 
     for counter, i in enumerate(sngdata['times_utc_strings']):
         if i >= starttime:
@@ -438,28 +433,28 @@ def SNG_spectrogram(sngdata, anodes, starttime, seconds, mass=False, backgroundr
             actualtime = i
             break
 
-    slicenumbers = np.arange(slicenumber, slicenumber + (seconds / 4), 1, dtype=int)
+    slicenumbers = arange(slicenumber, slicenumber + (seconds / 4), 1, dtype=int)
     print(slicenumbers, len(slicenumbers))
     print(slicenumbers[0], slicenumbers[-1])
 
     X = sngdata['times_utc'][slicenumbers[0]:slicenumbers[-1] + 1]
 
-    if mass == False:
+    if not mass:
         Y = sngcalib['sngpolyearray']
-    if mass == True:
+    if mass:
         averageSCP = -6.5
         print(averageSCP)
         Y = [(i - averageSCP) * sngdata['conversionfactor'] for i in sngcalib['sngpolyearray']]
 
     for figcounter, anode in enumerate(anodes):
 
-        if backgroundremoved == False:
+        if not backgroundremoved:
             Z = sngdata['sngdef'][:, anode, slicenumbers[0]:slicenumbers[-1]]
-        if backgroundremoved == True:
-            backgroundremoveddata = np.zeros(shape=(62, len(slicenumbers)))
+        if backgroundremoved:
+            backgroundremoveddata = zeros(shape=(62, len(slicenumbers)))
             for slicecounter, slicenumber in enumerate(slicenumbers):
-                backgroundcount = np.mean([np.mean(sngdata['sngdef'][:, :3, slicenumber], axis=1),
-                                           np.mean(sngdata['sngdef'][:, 5:8, slicenumber], axis=1)], axis=0)
+                backgroundcount = mean([mean(sngdata['sngdef'][:, :3, slicenumber], axis=1),
+                                        mean(sngdata['sngdef'][:, 5:8, slicenumber], axis=1)], axis=0)
                 tempdata = [a - b for a, b in zip(sngdata['sngdef'][:, anode, slicenumber], backgroundcount)]
                 backgroundremoveddata[:, slicecounter] = tempdata
             Z = backgroundremoveddata
@@ -506,9 +501,9 @@ def SNG_spectrogram(sngdata, anodes, starttime, seconds, mass=False, backgroundr
 
 
 def IBS_spectrogram(ibsdata, fans, starttime, seconds, backgroundremoved=False):
-    '''
+    """
     Plot multiple ibs fan spectrograms
-    '''
+    """
 
     countlimits = {'t27': [1e1, 5e5], 't46': [1e1, 5e5], 't55': [1e1, 5e5], 't56': [1e1, 5e5], 't57': [1e2, 5e5],
                    't58': [1e1, 5e5], 't59': [6e2, 3e5]}
@@ -523,31 +518,31 @@ def IBS_spectrogram(ibsdata, fans, starttime, seconds, backgroundremoved=False):
         axis1 = plt.axes()
 
     if len(fans) > 1:
-        fig, axes = plt.subplots(len(fans), sharex=True, sharey=True, figsize=(18, 10))
+        fig, axes = plt.subplots(len(fans), sharex="True", sharey="True", figsize=(18, 10))
 
     for counter, i in enumerate(ibsdata['times_utc_strings']):
         if i >= starttime:
             slicenumber = counter
             break
 
-    slicenumbers = np.arange(slicenumber, slicenumber + (seconds / 2), 1, dtype=int)
+    slicenumbers = arange(slicenumber, slicenumber + (seconds / 2), 1, dtype=int)
 
     X = ibsdata['times_utc'][slicenumbers[0]:slicenumbers[-1] + 1]
     Y = ibscalib['ibspolyearray']
 
     for figcounter, fan in enumerate(fans):
 
-        if backgroundremoved == False:
-            Z = np.zeros((653, len(slicenumbers)))
+        if not backgroundremoved:
+            Z = zeros((653, len(slicenumbers)))
             for k in range(653):
                 for slicecounter, slicenumber in enumerate(slicenumbers):
                     Z[k, slicecounter] = ((ibsdata['ibsdata'][k, fan, slicenumber]) / (ibscalib['ibsgeom'] * 1e-4))
                     # Z[k,slicecounter] = ibsdata['ibsdata'][k,fan,slicenumber]
-        if backgroundremoved == True:
-            backgroundremoveddata = np.zeros(shape=(653, len(slicenumbers)))
+        if backgroundremoved:
+            backgroundremoveddata = zeros(shape=(653, len(slicenumbers)))
             for slicecounter, slicenumber in enumerate(slicenumbers):
-                backgroundval = np.max([np.max(ibsdata['ibsdata'][:, :3, slicenumber], axis=1),
-                                        np.max(ibsdata['ibsdata'][:, 5:8, slicenumber], axis=1)], axis=0)
+                backgroundval = max([max(ibsdata['ibsdata'][:, :3, slicenumber], axis=1),
+                                     max(ibsdata['ibsdata'][:, 5:8, slicenumber], axis=1)], axis=0)
                 tempdata = [a - b for a, b in zip(ibsdata['ibsdata'][:, fan, slicenumber], backgroundcount)]
                 backgroundremoveddata[:, slicecounter] = tempdata
             Z = backgroundremoveddata
