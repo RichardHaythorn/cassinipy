@@ -4,9 +4,9 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="cassinipy-richardhaythorn", # Replace with your own username
-    version="0.1.0",
+    name="cassinipy-richardhaythorn",  # Replace with your own username
     author="Richard Haythornthwaite",
+    version="0.1.0",
     author_email="richardhaythornthwaite@hotmail.co.uk",
     description="Code for analysing Cassini in-situ data",
     url="https://github.com/RichardHaythorn/cassinipy",
