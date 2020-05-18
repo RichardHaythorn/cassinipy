@@ -133,3 +133,6 @@ dmypy.json
 .idea/inspectionProfiles/profiles_settings.xml
 .idea/cassinipy.iml
 /.idea/workspace.xml
+
+#MSSL ignores
+/cassinipy/caps/mssl.py
