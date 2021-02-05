@@ -1,4 +1,4 @@
-from datetime import datetime
+import datetime
 
 import h5py as h5py
 import numpy as np
@@ -16,7 +16,7 @@ k = constants.physical_constants['Boltzmann constant'][0]
 
 
 def caps_dateparser(stringlist):
-    return [datetime.strptime(item, "%Y-%jT%H:%M:%S.%f") for item in stringlist]
+    return [datetime.datetime.strptime(item, "%Y-%jT%H:%M:%S.%f") for item in stringlist]
 
 
 def caps_hdf5totimeseries(hdfpath, instrumentanode=0):

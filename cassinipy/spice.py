@@ -1,5 +1,17 @@
 import numpy as np
 import spiceypy as spice
+from pathlib import Path
+import glob
+
+cassinispicekernelfolder = Path.home() / "cassinipy" / "spice"
+
+def load_kernels():
+    # Update this, only load needed kernels
+    if spice.ktotal('spk') == 0:
+        for file in glob.glob(cassinispicekernelfolder.__str__() + "/**/*.*", recursive=True):
+            spice.spiceypy.furnsh(file)
+        count = spice.ktotal('ALL')
+        print('Kernel count after load:        {0}\n'.format(count))
 
 
 def cassini_phase(utc, target='CASSINI', frame='IAU_TITAN', observ='TITAN', corrtn='NONE', output=False):
@@ -47,16 +59,10 @@ def cassini_surfintercerpt(utc, output=False):
     return point, [radius, colat, lon], spice.vnorm(srfvec)
 
 
-def cassini_altlatlon(utc, output=False):
-    target = 'TITAN'
-    fixref = 'IAU_TITAN'
-    dref = 'IAU_TITAN'
-    method = 'ELLIPSOID'
-    abcorr = 'NONE'
-    obsrvr = 'CASSINI'
+def cassini_altlatlon(utc, target='TITAN', output=False):
     state = cassini_phase(utc)
 
-    lon, lat, alt = spice.recpgr(target, state[:3], spice.bodvrd('titan', 'RADII', 3)[1][0], 2.64e-4)
+    lon, lat, alt = spice.recpgr(target, state[:3], spice.bodvrd(target, 'RADII', 3)[1][0], 2.64e-4)
 
     if output:
         print("ALtitude", alt)

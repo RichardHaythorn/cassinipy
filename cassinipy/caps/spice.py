@@ -36,7 +36,7 @@ def cassini_ramdirection_SCframe(tempdatetime, target='CASSINI', frame='J2000', 
 
     # Gets Attitude
     sclkdp = spice.sce2c(-82, et)  # converts an et to a continuous encoded sc clock (ticks)
-    ckgp_output = spice.ckgp(-82000, sclkdp, 0, 'J2000')
+    ckgp_output = spice.ckgp(-82000, sclkdp, 0, frame)
     cmat = ckgp_output[0]
 
     ram_unit = spice.mxv(cmat, ramdir)
@@ -64,3 +64,4 @@ def caps_ramdirection_azielv(tempdatetime, observ='titan'):
     ram_unit_azielv = np.array(spice.reclat(ram_unit_CAPS)[1:]) * spice.dpr()
 
     return ram_unit_azielv[0], ram_unit_azielv[1]
+
