@@ -1,2 +1,2 @@
 # cassinipy
-Code for analysing Cassini mission data
+Code for analysing Cassini mission insitu data
